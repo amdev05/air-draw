@@ -630,7 +630,7 @@ export default function DrawingBoard() {
   }[mode];
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#0a0a0f]">
+    <div className="relative w-dvw h-dvw overflow-hidden bg-[#0a0a0f]">
       {/* Mirrored video feed */}
       <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover opacity-50" style={{ transform: "scaleX(-1)" }} muted playsInline autoPlay />
       {/* Drawing canvas — pointer-events-none so toolbar clicks pass through */}
