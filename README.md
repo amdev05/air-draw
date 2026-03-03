@@ -31,6 +31,7 @@ Draw in the air using just your finger — powered by [MediaPipe Hand Landmarker
 - ⏱️ **Undo/Redo lebih lambat** — Waktu hold diperpanjang menjadi 1.2 detik agar tidak terlalu cepat
 - 🧹 **Area hapus lebih besar** — Radius eraser diperbesar menjadi 80px (sebesar telapak tangan)
 - 🎨 **Kontrol gesture tanpa klik** — Ganti warna dan ukuran brush dengan gesture tangan (2/3/4 jari)
+- 📱 **Mode Fullscreen** — Tombol fullscreen di kanan bawah untuk pengalaman immersive di mobile (menghilangkan bar browser)
 
 ## Tech Stack
 
