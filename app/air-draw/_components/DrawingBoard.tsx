@@ -1,6 +1,11 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { Toolbar } from "./Toolbar";
+import { FullscreenButton } from "./FullscreenButton";
+import { GestureGuide } from "./GestureGuide";
+import { ModeBadge } from "./ModeBadge";
+import { Loading } from "./Loading";
 
 type DrawMode = "draw" | "erase" | "undo" | "redo" | "idle";
 type Point = { x: number; y: number };
@@ -101,7 +106,6 @@ export default function DrawingBoard() {
   const [size, setSize] = useState(8);
   const [hasHand, setHasHand] = useState(false);
   const [dwellBtn, setDwellBtn] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // --- Action helpers (only use refs → safe inside animation loop) ---
 
@@ -185,21 +189,6 @@ export default function DrawingBoard() {
     pickSize(BRUSH_SIZES[nextIdx]);
   };
 
-  // Fungsi untuk toggle fullscreen
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-      } else {
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-    } catch (err) {
-      console.error("Fullscreen error:", err);
-    }
-  };
-
   const triggerBtn = (act: string) => {
     if (act === "undo") doUndo();
     else if (act === "redo") doRedo();
@@ -207,19 +196,6 @@ export default function DrawingBoard() {
     else if (act.startsWith("c:")) pickColor(act.slice(2));
     else if (act.startsWith("s:")) pickSize(Number(act.slice(2)));
   };
-
-  useEffect(() => {
-    // Listen untuk perubahan fullscreen (misal user tekan ESC)
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -327,7 +303,7 @@ export default function DrawingBoard() {
             const tUp = lm[4].y < lm[3].y && lm[4].x > lm[3].x; // up & pointing sideways
 
             // Hitung jumlah jari yang terbuka
-            const fingersUp = [iUp, mUp, rUp, pUp].filter(Boolean).length;
+            // const fingersUp = [iUp, mUp, rUp, pUp].filter(Boolean).length;
 
             let g: DrawMode = "idle";
 
@@ -595,9 +571,9 @@ export default function DrawingBoard() {
           rafRef.current = requestAnimationFrame(tick);
         };
         rafRef.current = requestAnimationFrame(tick);
-      } catch (e: any) {
+      } catch (e: Error | unknown) {
         if (!cancelled) {
-          setErr(e.message || "Initialization failed");
+          setErr(e instanceof Error ? e.message : "Initialization failed");
           setLoading(false);
         }
       }
@@ -613,22 +589,6 @@ export default function DrawingBoard() {
     };
   }, []);
 
-  const modeBadge = {
-    draw: "bg-emerald-500/20 border-emerald-500/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.25)]",
-    erase: "bg-red-500/20 border-red-500/60 text-red-300 shadow-[0_0_20px_rgba(239,68,68,0.25)]",
-    undo: "bg-amber-500/20 border-amber-500/60 text-amber-300",
-    redo: "bg-sky-500/20 border-sky-500/60 text-sky-300",
-    idle: hasHand ? "bg-white/10 border-white/20 text-white/60" : "bg-white/5 border-white/10 text-white/30",
-  }[mode];
-
-  const modeLabel = {
-    draw: "✍️  Menggambar",
-    erase: "🧹  Menghapus",
-    undo: "↩️  Undo…",
-    redo: "↪️  Redo…",
-    idle: hasHand ? "✋  Angkat 1 jari untuk menggambar" : "👋  Tunjukkan tangan Anda",
-  }[mode];
-
   return (
     <div className="relative w-dvw h-dvh overflow-hidden bg-[#0a0a0f]">
       {/* Mirrored video feed */}
@@ -639,16 +599,7 @@ export default function DrawingBoard() {
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
 
       {/* Loading */}
-      {loading && !err && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0f]">
-          <div className="relative w-20 h-20">
-            <div className="absolute inset-0 rounded-full border-4 border-purple-500/30 border-t-purple-500 animate-spin" />
-            <span className="absolute inset-0 flex items-center justify-center text-3xl">🖐️</span>
-          </div>
-          <h1 className="mt-8 text-2xl font-bold text-white">Virtual Air Draw</h1>
-          <p className="mt-2 text-white/40 text-sm">Initializing AI & Camera…</p>
-        </div>
-      )}
+      {loading && !err && <Loading />}
 
       {/* Error */}
       {err && (
@@ -662,121 +613,27 @@ export default function DrawingBoard() {
       {!loading && !err && (
         <>
           {/* Mode badge */}
-          <div className="absolute top-5 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
-            <div className={`px-5 py-2 rounded-full text-sm font-semibold tracking-wide backdrop-blur-md border transition-all duration-300 ${modeBadge}`}>{modeLabel}</div>
-          </div>
+          <ModeBadge mode={mode} hasHand={hasHand} />
 
           {/* Gesture guide */}
-          <div className="absolute top-5 left-5 z-40 space-y-1.5 text-xs text-white/30 pointer-events-none select-none">
-            <p className="font-semibold text-white/50 mb-1">Gesture Menggambar:</p>
-            <p>☝️ Telunjuk terbuka → Menggambar</p>
-            <p>✊ Telunjuk dilipat → Pause</p>
-            <p>🤚 Telapak terbuka → Hapus</p>
-
-            <p className="font-semibold text-white/50 mt-3 mb-1">Gesture Kontrol:</p>
-            <p>✌️ 2 jari → Warna berikutnya</p>
-            <p>🤟 3 jari → Warna sebelumnya</p>
-            <p>🖖 4 jari → Ubah ukuran brush</p>
-            <p>👍 Jempol (tahan) → Undo</p>
-            <p>🤙 Kelingking (tahan) → Redo</p>
-          </div>
+          <GestureGuide />
 
           {/* Toolbar */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-black/50 backdrop-blur-xl border border-white/10 shadow-2xl">
-            {/* Color palette */}
-            <div className="flex items-center gap-1.5">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  data-act={`c:${c}`}
-                  onClick={() => pickColor(c)}
-                  title={c}
-                  className="rounded-full border-2 transition-transform duration-150 hover:scale-110"
-                  style={{
-                    width: 26,
-                    height: 26,
-                    backgroundColor: c,
-                    borderColor: color === c ? "white" : "rgba(255,255,255,0.15)",
-                    transform: color === c || dwellBtn === `c:${c}` ? "scale(1.25)" : undefined,
-                    boxShadow: color === c ? `0 0 8px ${c}` : undefined,
-                  }}
-                />
-              ))}
-            </div>
-
-            <div className="w-px h-8 bg-white/15 mx-1" />
-
-            {/* Brush sizes */}
-            <div className="flex items-center gap-1.5">
-              {BRUSH_SIZES.map((s) => (
-                <button
-                  key={s}
-                  data-act={`s:${s}`}
-                  onClick={() => pickSize(s)}
-                  className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
-                    size === s ? "bg-white/20" : "hover:bg-white/10"
-                  } ${dwellBtn === `s:${s}` ? "ring-1 ring-white" : ""}`}
-                >
-                  <span className="rounded-full block" style={{ width: Math.min(s * 0.85, 22), height: Math.min(s * 0.85, 22), backgroundColor: color }} />
-                </button>
-              ))}
-            </div>
-
-            <div className="w-px h-8 bg-white/15 mx-1" />
-
-            <button
-              data-act="undo"
-              onClick={doUndo}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${dwellBtn === "undo" ? "bg-amber-500/20 text-amber-300" : "text-white/60 hover:text-white hover:bg-white/10"}`}
-            >
-              ↩ Undo
-            </button>
-
-            <button
-              data-act="redo"
-              onClick={doRedo}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${dwellBtn === "redo" ? "bg-sky-500/20 text-sky-300" : "text-white/60 hover:text-white hover:bg-white/10"}`}
-            >
-              ↪ Redo
-            </button>
-
-            <button
-              data-act="clear"
-              onClick={doClear}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${dwellBtn === "clear" ? "bg-red-500/20 text-red-300" : "text-red-400/70 hover:text-red-300 hover:bg-red-500/15"}`}
-            >
-              🗑 Clear
-            </button>
-          </div>
+          <Toolbar
+            COLORS={COLORS}
+            color={color}
+            pickColor={pickColor}
+            BRUSH_SIZES={BRUSH_SIZES}
+            size={size}
+            pickSize={pickSize}
+            dwellBtn={dwellBtn}
+            doUndo={doUndo}
+            doRedo={doRedo}
+            doClear={doClear}
+          />
 
           {/* Fullscreen button - kanan bawah */}
-          <button
-            onClick={toggleFullscreen}
-            className="absolute bottom-6 right-6 z-40 w-12 h-12 flex items-center justify-center rounded-xl bg-black/50 backdrop-blur-xl border border-white/10 shadow-2xl hover:bg-white/10 transition-all group"
-            title={isFullscreen ? "Exit Fullscreen (ESC)" : "Fullscreen"}
-          >
-            {isFullscreen ? (
-              // Icon exit fullscreen
-              <svg className="w-5 h-5 text-white/70 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"
-                />
-              </svg>
-            ) : (
-              // Icon fullscreen
-              <svg className="w-5 h-5 text-white/70 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 8V4m0 0h4M4 4l5.25 5.25M20 8V4m0 0h-4m4 0l-5.25 5.25M4 16v4m0 0h4m-4 0l5.25-5.25M20 16v4m0 0h-4m4 0l-5.25-5.25"
-                />
-              </svg>
-            )}
-          </button>
+          <FullscreenButton />
         </>
       )}
     </div>

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Virtual Air Draw",
+  title: {
+    default: "Amdev",
+    template: "%s - Amdev",
+  },
   description: "Draw in the air with your finger — powered by MediaPipe",
 };
 
